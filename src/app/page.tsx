@@ -1,69 +1,220 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState, useEffect, useCallback } from "react";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
+import { StatsOverview } from "@/components/dashboard/StatsOverview";
+import { SongAnalysisForm } from "@/components/music/SongAnalysisForm";
+import { MoodResultCard } from "@/components/music/MoodResultCard";
+import { MoodDistributionChart } from "@/components/charts/MoodDistributionChart";
+import { EnergyDistributionChart } from "@/components/charts/EnergyDistributionChart";
+import { RecentAnalysesList } from "@/components/dashboard/RecentAnalysesList";
+import { SmartInsightsCard } from "@/components/dashboard/SmartInsightsCard";
+import { EmptyState } from "@/components/dashboard/EmptyState";
+import { SongComparisonModal } from "@/components/music/SongComparisonModal";
+import {
+  AnalyzeSongInput,
+  DashboardStats,
+  SongAnalysisResult,
+  SongRecord,
+} from "@/types";
+import { Scale, Library, BarChart3 } from "lucide-react";
+import Link from "next/link";
+
+export default function DashboardPage() {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentSongs, setRecentSongs] = useState<SongRecord[]>([]);
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  // Active analysis in progress or just completed
+  const [activeAnalysis, setActiveAnalysis] = useState<(SongAnalysisResult & { metadataOnly?: boolean }) | null>(null);
+  const [activeInput, setActiveInput] = useState<AnalyzeSongInput | null>(null);
+
+  // Comparison modal state
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+  const [selectedSongForCompare, setSelectedSongForCompare] = useState<SongRecord | null>(null);
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/reports");
+      const json = await res.json();
+      if (json.success) {
+        setStats(json.data);
+        setRecentSongs(json.recentSongs || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch dashboard reports:", err);
+    } finally {
+      setLoadingStats(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    fetch("/api/reports")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!ignore && json.success) {
+          setStats(json.data);
+          setRecentSongs(json.recentSongs || []);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch dashboard reports:", err))
+      .finally(() => {
+        if (!ignore) setLoadingStats(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const handleAnalysisSuccess = (
+    result: SongAnalysisResult & { metadataOnly: boolean },
+    input: AnalyzeSongInput
+  ) => {
+    setActiveAnalysis(result);
+    setActiveInput(input);
+    // Smooth scroll to result
+    window.scrollTo({ top: 300, behavior: "smooth" });
+  };
+
+  const handleSavedToLibrary = () => {
+    fetchDashboardData();
+  };
+
+  const handleResetAnalysis = () => {
+    setActiveAnalysis(null);
+    setActiveInput(null);
+  };
+
+  const scrollToAnalysisForm = () => {
+    const el = document.getElementById("analyze");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const openComparisonWith = (song: SongRecord) => {
+    setSelectedSongForCompare(song);
+    setIsCompareOpen(true);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="min-h-screen bg-[#080d1a] text-slate-100 flex flex-col md:flex-row">
+      {/* Desktop Sidebar */}
+      <Sidebar />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <Header onAnalyzeClick={scrollToAnalysisForm} />
+
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-8">
+          {/* Welcome Heading Banner */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-violet-600/20 text-violet-300 border border-violet-500/30">
+                  AI Acoustic Psychology
+                </span>
+                <span className="text-xs text-slate-400">Next.js 16 + Supabase + Gemini 2.5</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
+                AI Music Mood <span className="gradient-text">Classifier</span>
+              </h1>
+              <p className="text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                Classify musical emotions, detect nuanced lyrical themes, estimate energy dynamics, and map psychological valence with Google Gemini AI.
+              </p>
+            </div>
+
+            {/* Quick Actions Header */}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <button
+                onClick={() => setIsCompareOpen(true)}
+                disabled={recentSongs.length < 2}
+                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Scale className="w-4 h-4 text-cyan-400" />
+                <span>Compare Tracks</span>
+              </button>
+              <Link
+                href="/library"
+                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition"
+              >
+                <Library className="w-4 h-4 text-violet-400" />
+                <span>Browse Library</span>
+              </Link>
+              <Link
+                href="/reports"
+                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition"
+              >
+                <BarChart3 className="w-4 h-4 text-pink-400" />
+                <span>Reports</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Database Metric Overview Cards */}
+          <StatsOverview stats={stats} loading={loadingStats} />
+
+          {/* Active Result Card (When Analysis Succeeds) */}
+          {activeAnalysis && activeInput && (
+            <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+              <MoodResultCard
+                analysis={activeAnalysis}
+                input={activeInput}
+                onSaved={handleSavedToLibrary}
+                onReset={handleResetAnalysis}
+              />
+            </div>
+          )}
+
+          {/* Prominent Song Analysis Form */}
+          <SongAnalysisForm onAnalysisSuccess={handleAnalysisSuccess} />
+
+          {/* If 0 songs exist and not loading, show empty state onboarding */}
+          {!loadingStats && stats && stats.totalSongs === 0 && (
+            <EmptyState onStartAnalysis={scrollToAnalysisForm} />
+          )}
+
+          {/* Analytics & Distribution Grid */}
+          {stats && stats.totalSongs > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <MoodDistributionChart
+                distribution={stats.moodDistribution}
+                totalSongs={stats.totalSongs}
+              />
+              <div className="space-y-6">
+                <EnergyDistributionChart
+                  averageEnergy={stats.averageEnergy}
+                  averageValence={stats.averageValence}
+                  totalSongs={stats.totalSongs}
+                />
+                <RecentAnalysesList
+                  songs={recentSongs}
+                  onSelectSong={openComparisonWith}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* AI Smart Psychological Insights Card */}
+          {stats && stats.totalSongs > 0 && (
+            <SmartInsightsCard totalSongs={stats.totalSongs} />
+          )}
+        </main>
+      </div>
+
+      {/* Comparison Modal */}
+      <SongComparisonModal
+        availableSongs={recentSongs}
+        initialSong={selectedSongForCompare}
+        isOpen={isCompareOpen}
+        onClose={() => {
+          setIsCompareOpen(false);
+          setSelectedSongForCompare(null);
+        }}
+      />
     </div>
   );
 }
